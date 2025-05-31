@@ -1,0 +1,195 @@
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+
+interface SecurityScoreChartProps {
+  data?: any[];
+  className?: string;
+}
+
+export function SecurityScoreChart({ data = [], className }: SecurityScoreChartProps) {
+  const chartRef = useRef<HTMLCanvasElement>(null);
+  const chartInstance = useRef<any>(null);
+
+  useEffect(() => {
+    const loadChart = async () => {
+      if (typeof window !== 'undefined') {
+        const Chart = (await import('chart.js')).default;
+        await import('chart.js/auto');
+
+        if (chartRef.current) {
+          // Destroy existing chart
+          if (chartInstance.current) {
+            chartInstance.current.destroy();
+          }
+
+          const ctx = chartRef.current.getContext('2d');
+          if (!ctx) return;
+
+          // Sample data if no data provided
+          const chartData = data.length > 0 ? data : [
+            { date: '2024-01-01', avgScore: 7.2 },
+            { date: '2024-01-02', avgScore: 7.5 },
+            { date: '2024-01-03', avgScore: 7.8 },
+            { date: '2024-01-04', avgScore: 8.1 },
+            { date: '2024-01-05', avgScore: 8.3 },
+            { date: '2024-01-06', avgScore: 8.7 },
+            { date: '2024-01-07', avgScore: 9.0 },
+          ];
+
+          const labels = chartData.map(item => {
+            const date = new Date(item.date);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          });
+
+          const values = chartData.map(item => item.avgScore);
+
+          chartInstance.current = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: 'Security Score',
+                  data: values,
+                  borderColor: 'rgb(16, 185, 129)',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  borderWidth: 3,
+                  fill: true,
+                  tension: 0.4,
+                  pointBackgroundColor: 'rgb(16, 185, 129)',
+                  pointBorderColor: '#fff',
+                  pointBorderWidth: 2,
+                  pointRadius: 5,
+                  pointHoverRadius: 7,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                intersect: false,
+                mode: 'index',
+              },
+              plugins: {
+                legend: {
+                  display: false,
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  titleColor: '#fff',
+                  bodyColor: '#fff',
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  borderWidth: 1,
+                  cornerRadius: 8,
+                  displayColors: false,
+                  callbacks: {
+                    title: (context: any) => {
+                      return `Date: ${context[0].label}`;
+                    },
+                    label: (context: any) => {
+                      return `Security Score: ${context.parsed.y.toFixed(1)}/10`;
+                    },
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  grid: {
+                    display: true,
+                    color: 'rgba(156, 163, 175, 0.1)',
+                  },
+                  ticks: {
+                    color: 'rgba(156, 163, 175, 0.7)',
+                    font: {
+                      size: 11,
+                    },
+                  },
+                  border: {
+                    display: false,
+                  },
+                },
+                y: {
+                  min: 0,
+                  max: 10,
+                  grid: {
+                    display: true,
+                    color: 'rgba(156, 163, 175, 0.1)',
+                  },
+                  ticks: {
+                    color: 'rgba(156, 163, 175, 0.7)',
+                    font: {
+                      size: 11,
+                    },
+                    stepSize: 2,
+                    callback: function(value: any) {
+                      return value + '/10';
+                    },
+                  },
+                  border: {
+                    display: false,
+                  },
+                },
+              },
+              elements: {
+                point: {
+                  hoverBackgroundColor: 'rgb(16, 185, 129)',
+                },
+              },
+            },
+          });
+        }
+      }
+    };
+
+    loadChart();
+
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+      }
+    };
+  }, [data]);
+
+  // Update chart theme based on dark mode
+  useEffect(() => {
+    if (chartInstance.current) {
+      const observer = new MutationObserver(() => {
+        const isDark = document.documentElement.classList.contains('dark');
+        const chart = chartInstance.current;
+        
+        if (chart) {
+          // Update grid colors based on theme
+          const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+          const tickColor = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+          
+          chart.options.scales.x.grid.color = gridColor;
+          chart.options.scales.y.grid.color = gridColor;
+          chart.options.scales.x.ticks.color = tickColor;
+          chart.options.scales.y.ticks.color = tickColor;
+          
+          chart.update('none');
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+
+      return () => observer.disconnect();
+    }
+  }, [chartInstance.current]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={className}
+    >
+      <div className="relative h-64 w-full">
+        <canvas ref={chartRef} className="absolute inset-0" />
+      </div>
+    </motion.div>
+  );
+}
